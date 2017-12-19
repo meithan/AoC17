@@ -1,7 +1,6 @@
 import sys
 
-with open(sys.argv[1]) as f:
-  square = int(f.readline())
+# ==================================
 
 RIGHT = 0; UP = 1; LEFT = 2; DOWN = 3
 directions = [RIGHT, UP, LEFT, DOWN]
@@ -27,6 +26,45 @@ def get_neighs_values(x, y, values):
           s += values[(xn,yn)]
   return s
 
+# ==================================
+# ALTERNATE ANALYTICAL SOLUTION FOR PART A
+
+# Return the coords of the "origin" of layer l
+def layer_origin(l):
+  if l == 1:
+    return (0, 0)
+  else:
+    return (l-1, 2-l)
+
+# Alternate (analytical) solution for part A
+# Returns the x,y coordinates of the given sequential
+# number in the spiral grid
+def get_coords(N):
+
+  if N == 1: return 0
+
+  # Determine layer number (first layer = 1)
+  # The total number of squares up to layer l is (2*l-1)^2
+  l = 1
+  while (2*l-1)**2 < N: l += 1
+
+  # Now get layer origin, determine offset, and determine position
+  lx, ly = layer_origin(l)
+  offset = N - (2*(l-1)-1)**2 - 1
+  if 0 <= offset <= (2*l-1)-3:
+    return lx, ly + offset
+  elif (2*l-1)-2 <= offset <= 2*(2*l-1)-3:
+    return lx - (offset - ((2*l-1)-2)), ly + (2*l-1) - 2
+  elif 2*(2*l-1)-2 <= offset <= 3*(2*l-1)-5:
+    return lx - (2*l-2), ly + (2*l-4) - (offset-(2*(2*l-1)-2))
+  elif 3*(2*l-1)-4 <= offset <= 4*(2*l-1)-5:
+    return lx - (2*l-2) + (offset-(3*(2*l-1)-4)), ly-1
+
+# ==================================
+
+with open(sys.argv[1]) as f:
+  square = int(f.readline())
+
 solB = None
 x = 0
 y = 0
@@ -51,5 +89,9 @@ for i in range(square-1):
 
 solA = abs(x) + abs(y)
 
-print(solA)
+# Alternate solution with no iteration
+xalt, yalt = get_coords(square)
+solA_alt = abs(xalt) + abs(yalt)
+
+print(solA, solA_alt)
 print(solB)
