@@ -49,9 +49,12 @@ while True:
   symbol = tubes[row][col]
   print(row,col,symbol, direc)
 
-  # When we stop on a letter append it to seen letters
+  # When we stop on a letter append it to seen letters if we
+  # haven't seen it yet (we could run into a letter twice if it's
+  # located at an intersection)
   if symbol.isalpha():
-    letters += symbol
+    if symbol not in letters:
+      letters += symbol
 
   # Stopping on a | or - we just keep going with no direction change
   elif symbol in ["|", "-"]:
