@@ -94,10 +94,10 @@ def check_collision(p1, p2):
 
   # To do this, for particles 1 and 2, we solve x1(tc) = x2(tc)
   # for tc. Since x(t) = x0 + v0*t + t*(t+1)/2*a, we have:
-  #   x01 + tc*vx011 + tc*(tc+1)/2*ax11
-  #   = x02 + tc*vx021 + tc*(tc+1)/2*ax21
+  #   x01 + tc*vx01 + tc*(tc+1)/2*ax1
+  #   = x02 + tc*vx02 + tc*(tc+1)/2*ax2
   # This is a quadratic in tc, A*tc^2 + B*tc + C = 0, with:
-  #   A = (ax01-ax02)/2
+  #   A = (ax1-ax2)/2
   #   B = (vx01 + ax1/2) - (vx02 + ax2/2)
   #   C = (x01 - x02)
   # To avoid problems with non-integer division, we define
@@ -108,23 +108,29 @@ def check_collision(p1, p2):
   Bp = (2*p1.vel0.x + p1.acc.x) - (2*p2.vel0.x + p2.acc.x)
   C = p1.pos0.x - p2.pos0.x
 
-  # Check special cases
-  # If A = 0 and B != 0. In that case the equation reduces
-  # to B*tc + C = 0, with solution tc = -C/B = -2*C/B'
+  # Check special case: A = 0 and B != 0
+  # In this case the equation reduces to B*tc + C = 0, with
+  # solution tc = -C/B = -2*C/B'
   if Ap == 0 and Bp != 0:
     if (-2*C) % Bp == 0:
       tc = -2*C // Bp
       candidate_tcs.append(tc)
 
-  # Special case if both A and B are zero: either the particles
-  # are in the same place at time 0, or they don't ever collide.
+  # Special case: A = and B = 0
+  # Either the particles start in the same place, or they don't
+  # ever collide.
   elif Ap == 0 and Bp == 0:
     if C == 0:
       return 0
     else:
       return None
 
-  # In the general case we solve the quadratic
+  # In the general case, we solve the quadratic
+  # The solutions are:
+  #   tc = [-B +/- sqrt(B^2 - 4*A*C)] / (2*A)
+  # or, in terms of A' and B':
+  #   tc = [-2*B +/- sqrt((2*B)^2 - 16*A*C)] / (4*A)
+  #      = [-B' +/- sqrt((B')^2 - 8*(A')*C)] / (2*A')
   # Care must be exerted since the collision time must be integer
   else:
 
@@ -136,7 +142,7 @@ def check_collision(p1, p2):
     num2 = -Bp - s
 
     # The solutions of the quadratic are considered candidate
-    # time only if they're integer and positive
+    # times only if they're integer and positive
     if num1 % (2*Ap) == 0:
       tc = num1 // (2*Ap)
       if tc >= 0: candidate_tcs.append(tc)
@@ -148,8 +154,8 @@ def check_collision(p1, p2):
   if len(candidate_tcs) == 0:
     return None
 
-  # Otherwise, check if the candidate collision times work
-  # by checking wherher the full 3-positions match
+  # Otherwise, check if the candidate collision times are indeed
+  # collisions by checking wherher the full 3-positions match
   valid_tcs = []
   for tc in candidate_tcs:
     pos1, vel1 = p1.posvel_at(tc)
@@ -166,18 +172,20 @@ def check_collision(p1, p2):
 # ==========================================
 
 # Load particles from file
-next_ID = 0
+count = 0
 particles = []
 with open(sys.argv[1]) as f:
   for line in f:
-    particles.append(Particle(next_ID, line))
-    next_ID += 1
+    particles.append(Particle(count, line))
+    count += 1
+print("%i particles loaded" % count)
 
 # Part A
 
-# Simulate a large number of time steps
-# This works, but ir's slow!
-# num_steps = 20
+# Simulate a large number of time steps, and determine particles
+# closest to origin. This works, but it's slow!
+
+# num_steps = 10000
 # for step in range(1, num_steps+1):
 #   for p in particles:
 #     p.move()
@@ -185,12 +193,13 @@ with open(sys.argv[1]) as f:
 #     print(step)
 # print("Done")
 
-# Analytically compute the positions of the particles at a large time
+# Instead, analytically compute the positions of the particles at
+# a very large time ...
 tn = 1000000
 for p in particles:
   p.pos, p.vel = p.posvel_at(tn)
 
-# determine which particle is closest to origin
+# ... and determine which particle is closest to origin
 closest_dist = None
 closest_part = None
 for p in particles:
@@ -201,20 +210,20 @@ for p in particles:
 
 solA = closest_part
 
-# Another solution if to determine which particle has the smallest
-# acceleration. In the long run, particles with higher accelerations
-# will always overtake it. If ties occur, tiebreak by staring velocity
-# then by starting distance to origin
-smallest_accel_part = None
-smallest_accel = None
-for p in particles:
-  a = p.acc.magn2()
-  if smallest_accel is None or a < smallest_accel \
-  or (a == smallest_accel and p.vel0.magn2() < smallest_accel_part.vel0.magn2()) \
-  or (a == smallest_accel and p.vel0.magn2() == smallest_accel_part.vel0.magn2() and p.pos0.magn2() < smallest_accel_part.pos0.magn2()):
-    smallest_accel = a
-    smallest_accel_part = p
-print(smallest_accel_part.ID, smallest_accel)
+# Another solution is to determine which particle has the smallest
+# acceleration
+
+# In the long run, particles with higher accelerations will always
+# overtake ones with smaller acceleration, no matter their starting
+# velocities and positions. If ties occur, tiebreak by starting
+# velocity then by starting distance to the origin. Square magnitudes
+# are used to make the comparisons.
+foo = [(p.acc.magn2(), p.vel0.magn2(), p.pos0.magn2(), p) for p in particles]
+foo.sort()
+part = foo[0][3]
+print(part.ID, part.acc.magn2())
+solA_alt = part.ID
+
 
 # Part B
 
@@ -252,12 +261,12 @@ for tc, parts in collisions:
     for p in live_parts:
       p.removed = True
 
-# Finally, count how many particles are left:
+# Finally, count how many particles are left
 count = 0
 for p in particles:
   if not p.removed:
     count += 1
 solB = count
 
-print("Part A:", solA)
+print("Part A:", solA, solA_alt)
 print("Part B:", solB)
